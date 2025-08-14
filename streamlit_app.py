@@ -2,9 +2,7 @@ import streamlit as st
 import json
 from datetime import datetime
 import google.generativeai as genai
-from google.generativeai import types
 from vietnamese_legal_rag import VietnameseLegalRAG, LegalChunk
-import time
 
 # Configure page
 st.set_page_config(
@@ -111,6 +109,21 @@ st.markdown("""
         0%, 20% { opacity: 0; }
         50% { opacity: 1; }
         80%, 100% { opacity: 0; }
+    }
+    
+    /* Streaming response animation */
+    .streaming-response {
+        opacity: 0;
+        animation: fadeIn 0.5s ease-in forwards;
+    }
+    
+    @keyframes fadeIn {
+        to { opacity: 1; }
+    }
+    
+    /* Auto-scroll behavior */
+    .main {
+        scroll-behavior: smooth;
     }
     
     /* Input styling */
@@ -238,8 +251,78 @@ def get_system_prompt():
                     }
 """
 
+def process_query_streaming(rag_system, model, query):
+    """Process user query and return AI response with streaming"""
+    try:
+        # Search relevant legal documents
+        search_results = rag_system.search(query, top_k=1)
+        if not search_results:
+            return None, "Không tìm thấy thông tin liên quan trong cơ sở dữ liệu pháp luật."
+        
+        # Get the best match
+        best_result = search_results[0]
+        
+        # Try streaming first, fallback to non-streaming
+        try:
+            # Generate response using Gemini with streaming
+            system_prompt = get_system_prompt()
+            response = model.generate_content(
+                [
+                    system_prompt,
+                    f"Câu hỏi người dùng: {query}\n\nDữ liệu RAG:\n{best_result}"
+                ],
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0,
+                    response_mime_type="application/json"
+                ),
+                stream=True
+            )
+            
+            # Create placeholder for streaming
+            streaming_placeholder = st.empty()
+            accumulated_text = ""
+            
+            # Stream the response
+            for chunk in response:
+                if chunk.text:
+                    accumulated_text += chunk.text
+                    
+                    # Show streaming indicator
+                    with streaming_placeholder.container():
+                        st.markdown("""
+                        <div class="ai-message">
+                            <strong>🤖 Luật sư AI:</strong><br>
+                            <div class="loading-dots">Đang trả lời...</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Show partial content if it looks like JSON
+                        if accumulated_text.strip().startswith('{'):
+                            try:
+                                # Try to parse partial JSON for preview
+                                temp_data = json.loads(accumulated_text)
+                                if 'title' in temp_data:
+                                    st.markdown(f"**Đang phân tích:** {temp_data.get('title', 'N/A')}")
+                            except json.JSONDecodeError:
+                                pass
+            
+            # Clear streaming placeholder
+            streaming_placeholder.empty()
+            
+            # Final parse
+            response_data = json.loads(accumulated_text)
+            return best_result, response_data
+            
+        except Exception:
+            # Fallback to non-streaming
+            return process_query(rag_system, model, query)
+        
+    except Exception as e:
+        st.error(f"Lỗi xử lý truy vấn: {str(e)}")
+        return None, None
+
 def process_query(rag_system, model, query):
-    """Process user query and return AI response"""
+    """Process user query and return AI response (non-streaming version)"""
     try:
         # Search relevant legal documents
         search_results = rag_system.search(query, top_k=1)
@@ -269,6 +352,7 @@ def process_query(rag_system, model, query):
     except Exception as e:
         st.error(f"Lỗi xử lý truy vấn: {str(e)}")
         return None, None
+
 
 def main():
     # Header
@@ -372,8 +456,8 @@ def main():
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Chat input
-    with st.container():
+    # Chat input form
+    with st.form(key="chat_form", clear_on_submit=True):
         col1, col2 = st.columns([4, 1])
         
         with col1:
@@ -385,24 +469,34 @@ def main():
             )
         
         with col2:
-            send_button = st.button("📤 Gửi", use_container_width=True)
+            send_button = st.form_submit_button("📤 Gửi", use_container_width=True)
     
     # Process user input
     if send_button and user_input:
         # Add user message
         st.session_state.messages.append({"role": "user", "content": user_input})
         
-        # Show loading
+        # Create a placeholder for streaming response
+        response_placeholder = st.empty()
+        
+        # Show user message immediately
+        st.markdown(f"""
+        <div class="user-message">
+            <strong>🙋‍♂️ Bạn:</strong><br>
+            {user_input}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Process query with streaming
         with st.spinner("🔍 Đang tìm kiếm và phân tích..."):
-            # Process query
-            search_result, ai_response = process_query(
+            search_result, ai_response = process_query_streaming(
                 st.session_state.rag_system,
                 st.session_state.model,
                 user_input
             )
             
             if ai_response and search_result:
-                # Add AI response
+                # Add AI response to session state
                 message_data = {
                     "role": "assistant",
                     "content": ai_response,
@@ -410,10 +504,29 @@ def main():
                     "timestamp": datetime.now().isoformat()
                 }
                 st.session_state.messages.append(message_data)
+                
+                # Clear the placeholder
+                response_placeholder.empty()
+                
             else:
                 st.error("Không thể xử lý câu hỏi. Vui lòng thử lại.")
         
-        # Clear input and rerun
+        # Add auto-scroll JavaScript to the page
+        st.markdown("""
+        <script>
+        setTimeout(function() {
+            const mainContainer = window.parent.document.querySelector('.main');
+            if (mainContainer) {
+                mainContainer.scrollTo({
+                    top: mainContainer.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }, 100);
+        </script>
+        """, unsafe_allow_html=True)
+        
+        # Rerun to update the chat history display
         st.rerun()
     
     # Footer

@@ -1,9 +1,10 @@
-# Vietnamese Legal RAG Pipeline
+# Vietnamese Legal RAG System
 
-A Retrieval-Augmented Generation (RAG) system optimized for Vietnamese legal documents using the AITeamVN/Vietnamese_Embedding model with optional reranking.
+A comprehensive Retrieval-Augmented Generation (RAG) system optimized for Vietnamese legal documents with an intelligent web interface for legal consultation.
 
 ## Features
 
+### Core RAG System
 - **Semantic Chunking**: Preserves legal document structure and context
 - **Vietnamese Optimization**: Uses AITeamVN/Vietnamese_Embedding model
 - **Two-Stage Retrieval**: Fast retrieval + precision reranking
@@ -12,11 +13,32 @@ A Retrieval-Augmented Generation (RAG) system optimized for Vietnamese legal doc
 - **Legal-Specific Preprocessing**: Handles Vietnamese legal document formatting
 - **Performance Evaluation**: Compare retrieval vs reranked results
 
+### Web Interface (Streamlit)
+- **Interactive Chat Interface**: User-friendly legal consultation experience
+- **Intelligent AI Responses**: Powered by Google Gemini AI with legal expertise
+- **Real-time Streaming**: Token-by-token response generation for better UX
+- **Auto-clearing Input**: Input field clears automatically after submission
+- **Smart Auto-scroll**: Automatically scrolls to new responses
+- **Legal Citations**: Precise references to Vietnamese legal documents
+- **System Dashboard**: Real-time statistics and usage metrics
+
 ## Installation
 
 ```bash
 pip install -r requirements.txt
 ```
+
+## Configuration
+
+Before using the web interface, you need to:
+
+1. **Set up Google Gemini API**: 
+   - Get your API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Update the API key in `streamlit_app.py` line 191 (replace the placeholder)
+
+2. **Prepare Legal Data**:
+   - Ensure `legal_chunks.json` contains your processed legal documents
+   - Build the FAISS index using `vietnamese_legal_rag.py` or use existing `faiss_index.index`
 
 ## Usage
 
@@ -74,6 +96,22 @@ python chunking_analysis.py
 python reranking_evaluation.py
 ```
 
+### 6. Web Interface (Streamlit)
+
+Launch the interactive web application for legal consultation:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+The web interface provides:
+- **User-friendly chat interface** for legal questions
+- **Vietnamese legal document search** with AI-powered responses
+- **Real-time streaming responses** from Gemini AI
+- **Auto-clearing input field** and smooth scrolling
+- **Legal citations** with precise article references
+- **System statistics** showing database size and query count
+
 ## Key Design Decisions
 
 ### Semantic Chunking Strategy
@@ -105,10 +143,13 @@ python reranking_evaluation.py
 RAG/
 ├── legal_corpus.json          # Input legal documents
 ├── vietnamese_legal_rag.py    # Main RAG implementation with reranking
+├── streamlit_app.py           # Web UI for legal consultation
 ├── example_usage.py           # Usage examples
 ├── chunking_analysis.py       # Chunking strategy comparison
 ├── reranking_evaluation.py    # Reranking performance evaluation
 ├── requirements.txt           # Dependencies
+├── legal_chunks.json          # Pre-processed legal chunks
+├── faiss_index.index          # Pre-built FAISS index
 └── README.md                 # This file
 ```
 
