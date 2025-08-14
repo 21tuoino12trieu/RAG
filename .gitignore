@@ -29,7 +29,7 @@ Thumbs.db
 *.bin
 *.model
 
-# Data files that might be too large
-# Uncomment if needed
-# *.index
-# *.json
+# Data files that are too large for GitHub
+*.index
+legal_corpus.json
+legal_chunks.json
